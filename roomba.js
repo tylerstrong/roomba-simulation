@@ -29,7 +29,7 @@ function initRoombas() {
 // Called initially and whenever the window resizes to update the canvas
 // size and width/height variables.
 function sizeCanvas() {
-  const canvas = document.getElementById("roombas");
+  const canvas = document.getElementById("roomba");
   width = window.innerWidth;
   height = window.innerHeight;
   canvas.width = width;
@@ -127,7 +127,7 @@ function animationLoop() {
   }
 
   // Clear the canvas and redraw all the roombas in their current positions
-  const ctx = document.getElementById("roombas").getContext("2d");
+  const ctx = document.getElementById("roomba").getContext("2d");
   ctx.clearRect(0, 0, width, height);
   for (let roomba of roombas) {
     drawRoomba(ctx, roomba);
