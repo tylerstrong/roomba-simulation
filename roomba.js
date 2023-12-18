@@ -61,14 +61,12 @@ function keepWithinBounds(roomba) {
     newTheta = newTheta ? newTheta : getRandomFloat(min, max); // If newTheta already exists, don't update it
     // Check last n points in roomba history. If the roomba hasn't been moving for n frames, get it moving again
     if (roomba.history.slice(-n).every((point) => point[0] === roomba.x && point[1] === roomba.y)) {
-      // let newTheta = getRandomFloat(min, max);
       roomba.dx = speed * Math.cos(newTheta);
       roomba.dy = speed * Math.sin(newTheta);
       newTheta = undefined; // reset newTheta so that it can be used again later
     } else {
       roomba.dx = 0;
       roomba.dy = 0;
-      // roomba.theta = newTheta;
     }
   }
 
@@ -104,13 +102,7 @@ function drawRoomba(ctx, roomba) {
   ctx.stroke();
   
   let angle = roomba.theta;
-  // if (roomba.dy === 0 && roomba.dx === 0) {
-  //   // angle = Math.random() * 2 * Math.PI;
-  //   angle = newTheta;
-  // } else {
-  //   angle = roomba.theta;
-  // }
-
+  
   // Create blue circle representing roomba
   ctx.translate(roomba.x, roomba.y);
   ctx.rotate(angle);
