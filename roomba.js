@@ -2,25 +2,39 @@
 let width = 150;
 let height = 150;
 
+function getRandomInt(min, max) {
+  return Math.round(Math.random() * (max - min) + min);
+}
+
+function getRandomFloat(min, max) {
+  var tolerance = 0.0001;
+  min += tolerance;
+  max -= tolerance;
+  return (Math.random() * (max - min) + min);
+}
+
 const numRoombas = 1;
-const visualRange = 75;
+// const visualRange = 75;
 const speed = 5;
 const theta = Math.random() * 2 * Math.PI;
-console.log(theta);
 
 const radius = 30;
+const diameter = 2 * radius;
 
 var roombas = [];
+var newTheta;
 
 function initRoombas() {
   for (var i = 0; i < numRoombas; i += 1) {
     roombas[roombas.length] = {
-      x: Math.random() * width,
-      y: Math.random() * height,
+      // TODO: Fix spawn point issue where sometimes roomba spawns near the edge, causing it to glitch
+      x: getRandomInt(diameter, width - diameter),
+      y: getRandomInt(diameter, height - diameter),
       // TODO: Get the roomba to start at a random angle
-      // theta: Math.random() * 2 * Math.PI,
+      theta: theta,
       dx: speed * Math.cos(theta),
       dy: speed * Math.sin(theta),
+      speed: Math.sqrt(this.dx**2 + this.dy**2),
       history: [],
     };
   }
@@ -38,56 +52,66 @@ function sizeCanvas() {
 
 // Constrain a roomba to within the window. If it gets too close to an edge,
 // nudge it back in and reverse its direction.
-// TODO: Change logic to pause, rotate a random angle, and continue moving forward 
+// TODO: Address issue where window size is changed and roomba is way outside the new boundaries
 function keepWithinBounds(roomba) {
-  const margin = (2 * radius);
-  const turnFactor = 1;
+  const margin = diameter;
+
+  function getNewVelocity(min, max) {
+    const n = 60; // number of frames
+    newTheta = newTheta ? newTheta : getRandomFloat(min, max); // If newTheta already exists, don't update it
+    // Check last n points in roomba history. If the roomba hasn't been moving for n frames, get it moving again
+    if (roomba.history.slice(-n).every((point) => point[0] === roomba.x && point[1] === roomba.y)) {
+      // let newTheta = getRandomFloat(min, max);
+      roomba.dx = speed * Math.cos(newTheta);
+      roomba.dy = speed * Math.sin(newTheta);
+      newTheta = undefined; // reset newTheta so that it can be used again later
+    } else {
+      roomba.dx = 0;
+      roomba.dy = 0;
+      // roomba.theta = newTheta;
+    }
+  }
 
   // Left side of screen
   if (roomba.x < margin) {
-    roomba.dx += turnFactor;
+    getNewVelocity(-Math.PI/2, Math.PI/2);
   }
   // Right side of screen
   if (roomba.x > width - margin) {
-    roomba.dx -= turnFactor;
+    getNewVelocity(Math.PI/2, 3 * Math.PI/2);
   }
   // Top of Screen
   if (roomba.y < margin) {
-    roomba.dy += turnFactor;
+    getNewVelocity(0, Math.PI);
   }
   // Bottom of screen
-  if (roomba.y > height - margin - 60) {
-    roomba.dy -= turnFactor;
+  if (roomba.y > height - margin) {
+    getNewVelocity(Math.PI, 2 * Math.PI);
   }
 }
-
-// Speed will naturally vary in flocking behavior, but real animals can't go
-// arbitrarily fast.
-function limitSpeed(roomba) {
-  const speedLimit = 5;
-
-  const speed = Math.sqrt(roomba.dx * roomba.dx + roomba.dy * roomba.dy);
-  if (speed > speedLimit) {
-    roomba.dx = (roomba.dx / speed) * speedLimit;
-    roomba.dy = (roomba.dy / speed) * speedLimit;
-  }
-}
-
-const DRAW_TRAIL = true;
 
 function drawRoomba(ctx, roomba) {
-  if (DRAW_TRAIL) {
-    ctx.strokeStyle = "#558cf466";
-    ctx.beginPath();
-    ctx.moveTo(roomba.history[0][0], roomba.history[0][1]);
-    for (const point of roomba.history) {
-      ctx.lineTo(point[0], point[1]);
-    }
-    ctx.lineWidth = 2 * radius;
-    ctx.stroke();
+  // TODO: Fix sharp trail edges when roomba changes velocity
+  // Create trail representing roomba's history
+  ctx.strokeStyle = "#558cf466";
+  ctx.beginPath();
+  ctx.moveTo(roomba.history[0][0], roomba.history[0][1]);
+  for (const point of roomba.history) {
+    ctx.lineTo(point[0], point[1]);
   }
+  ctx.lineWidth = diameter;
+  ctx.lineCap = "round";
+  ctx.stroke();
+  
+  let angle = roomba.theta;
+  // if (roomba.dy === 0 && roomba.dx === 0) {
+  //   // angle = Math.random() * 2 * Math.PI;
+  //   angle = newTheta;
+  // } else {
+  //   angle = roomba.theta;
+  // }
 
-  const angle = Math.atan2(roomba.dy, roomba.dx);
+  // Create blue circle representing roomba
   ctx.translate(roomba.x, roomba.y);
   ctx.rotate(angle);
   ctx.translate(-roomba.x, -roomba.y);
@@ -95,16 +119,18 @@ function drawRoomba(ctx, roomba) {
   ctx.beginPath();
   ctx.arc(roomba.x, roomba.y, radius, 0, 2 * Math.PI);
   ctx.fill();
-  ctx.fillStyle = "#FF0000";
+
+  // Create red triangle indicating roomba orientation
+  ctx.fillStyle = "red";
   ctx.beginPath();
   ctx.moveTo(roomba.x + (radius/2), roomba.y);
   ctx.lineTo(roomba.x, roomba.y - (radius/5));
   ctx.lineTo(roomba.x, roomba.y + (radius/5));
   ctx.lineTo(roomba.x + (radius/2), roomba.y);
   ctx.fill();
+
+  // This line locks the orientation in place. Removing it rotates the canvas from the roombas perspective
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-
 }
 
 // Main animation loop
@@ -112,22 +138,21 @@ function animationLoop() {
   // Update each roomba
   for (let roomba of roombas) {
     // Update the velocities according to each rule
-    // flyTowardsCenter(roomba);
-    // avoidOthers(roomba);
-    // matchVelocity(roomba);
-    // limitSpeed(roomba);
     keepWithinBounds(roomba);
 
     // Update the position based on the current velocity
     roomba.x += roomba.dx;
     roomba.y += roomba.dy;
-    roomba.history.push([roomba.x, roomba.y])
+    roomba.speed = Math.abs(Math.sqrt(roomba.dx**2 + roomba.dy**2));
+    roomba.theta = (roomba.dy === 0 && roomba.dx === 0) ? newTheta : Math.atan2(roomba.dy, roomba.dx);
+    roomba.history.push([roomba.x, roomba.y]);
     // TODO: removing this line enables the trail to indicate which spots the roomba has passed over. However, it is incredibly inefficient, and causes lag long term. Determine a better way.
     // roomba.history = roomba.history.slice(-100);
   }
 
   // Clear the canvas and redraw all the roombas in their current positions
   const ctx = document.getElementById("roomba").getContext("2d");
+  ctx.globalCompositeOperation = "source-over";
   ctx.clearRect(0, 0, width, height);
   for (let roomba of roombas) {
     drawRoomba(ctx, roomba);
